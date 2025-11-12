@@ -1,77 +1,121 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Open Chat LIFF App</title>
-</head>
-<body>
-    <h1>予約メッセージ送信</h1>
-    <textarea id="messageInput" placeholder="メッセージを入力"></textarea>
-    <button id="sendButton">送信</button>
-    <button id="closeButton">閉じる</button>
-
-    <!-- LIFF SDK読み込み -->
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <title>Open Chat メッセージ送信</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no" />
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-    
+    <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      max-width: 500px;
+      margin: 0 auto;
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    h1 {
+      font-size: 20px;
+      margin-bottom: 20px;
+    }
+    textarea {
+      width: 100%;
+      padding: 10px;
+      font-size: 14px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      margin-bottom: 10px;
+      box-sizing: border-box;
+      min-height: 100px;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      background: #06c755;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 16px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    button:hover {
+      background: #05a847;
+    }
+    button:active {
+      background: #048a3a;
+    }
+    .status {
+      margin-top: 15px;
+      padding: 10px;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    .success {
+      background: #d4edda;
+      color: #155724;
+    }
+    .error {
+      background: #f8d7da;
+      color: #721c24;
+    }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Open Chat メッセージ送信</h1>
+      <textarea id="messageText" placeholder="送信するメッセージを入力してください"></textarea>
+      <button onclick="sendMessage()">送信</button>
+      <div id="status"></div>
+    </div>
+
     <script>
-        // LIFF初期化
-        window.onload = function() {
-            liff.init({
-                liffId: '2008484224-QG93kNNb' // 取得したLIFF IDを入力
-            })
-            .then(() => {
-                console.log('LIFF init succeeded');
-            })
-            .catch((err) => {
-                console.error('LIFF init failed', err);
-                alert('初期化エラー: ' + err);
-            });
-        };
+    // LIFF初期化
+    function initLIFF() {
+      liff.init({
+        liffId: '2008484224-QG93kNNb'  // ← ここにLIFF IDを入力
+      })
+      .catch(err => {
+        showStatus('LIFF初期化エラー: ' + err.message, 'error');
+      });
+    }
 
-        // メッセージ送信
-        document.getElementById('sendButton').addEventListener('click', function() {
-            const message = document.getElementById('messageInput').value;
-            
-            if (!message) {
-                alert('メッセージを入力してください');
-                return;
-            }
+    // メッセージ送信
+    function sendMessage() {
+      const message = document.getElementById('messageText').value.trim();
+      
+      if (!message) {
+        showStatus('メッセージを入力してください', 'error');
+        return;
+      }
 
-            // LINEアプリ内かブラウザか判定
-            if (liff.isInClient()) {
-                // LINEアプリ内：開いているトークに直接送信
-                liff.sendMessages([{
-                    type: 'text',
-                    text: message
-                }])
-                .then(() => {
-                    console.log('メッセージ送信成功');
-                    alert('送信しました！');
-                })
-                .catch((err) => {
-                    console.error('送信エラー', err);
-                    alert('エラー: ' + err);
-                });
-            } else {
-                // ブラウザ：送信先選択画面を表示
-                liff.shareTargetPicker([{
-                    type: 'text',
-                    text: message
-                }])
-                .then(() => {
-                    console.log('メッセージ送信成功');
-                })
-                .catch((err) => {
-                    console.error('送信エラー', err);
-                });
-            }
-        });
+      liff.sendMessages([{
+        type: 'text',
+        text: message
+      }])
+      .then(() => {
+        showStatus('✓ メッセージを送信しました！', 'success');
+        document.getElementById('messageText').value = '';
+      })
+      .catch(err => {
+        showStatus('送信エラー: ' + err.message, 'error');
+      });
+    }
 
-        // ウィンドウを閉じる
-        document.getElementById('closeButton').addEventListener('click', function() {
-            liff.closeWindow();
-        });
+    // ステータス表示
+    function showStatus(message, type) {
+      const status = document.getElementById('status');
+      status.textContent = message;
+      status.className = 'status ' + type;
+    }
+
+    // ページロード時に初期化
+    window.addEventListener('load', initLIFF);
     </script>
-</body>
+  </body>
 </html>
