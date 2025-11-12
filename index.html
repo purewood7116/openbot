@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Open Chat LIFF App</title>
+</head>
+<body>
+    <h1>予約メッセージ送信</h1>
+    <textarea id="messageInput" placeholder="メッセージを入力"></textarea>
+    <button id="sendButton">送信</button>
+    <button id="closeButton">閉じる</button>
+
+    <!-- LIFF SDK読み込み -->
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    
+    <script>
+        // LIFF初期化
+        window.onload = function() {
+            liff.init({
+                liffId: 'YOUR_LIFF_ID_HERE' // 取得したLIFF IDを入力
+            })
+            .then(() => {
+                console.log('LIFF init succeeded');
+            })
+            .catch((err) => {
+                console.error('LIFF init failed', err);
+                alert('初期化エラー: ' + err);
+            });
+        };
+
+        // メッセージ送信
+        document.getElementById('sendButton').addEventListener('click', function() {
+            const message = document.getElementById('messageInput').value;
+            
+            if (!message) {
+                alert('メッセージを入力してください');
+                return;
+            }
+
+            // LINEアプリ内かブラウザか判定
+            if (liff.isInClient()) {
+                // LINEアプリ内：開いているトークに直接送信
+                liff.sendMessages([{
+                    type: 'text',
+                    text: message
+                }])
+                .then(() => {
+                    console.log('メッセージ送信成功');
+                    alert('送信しました！');
+                })
+                .catch((err) => {
+                    console.error('送信エラー', err);
+                    alert('エラー: ' + err);
+                });
+            } else {
+                // ブラウザ：送信先選択画面を表示
+                liff.shareTargetPicker([{
+                    type: 'text',
+                    text: message
+                }])
+                .then(() => {
+                    console.log('メッセージ送信成功');
+                })
+                .catch((err) => {
+                    console.error('送信エラー', err);
+                });
+            }
+        });
+
+        // ウィンドウを閉じる
+        document.getElementById('closeButton').addEventListener('click', function() {
+            liff.closeWindow();
+        });
+    </script>
+</body>
+</html>
