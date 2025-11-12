@@ -1,142 +1,77 @@
-<!doctype html>
-<html lang="ja">
-  <head>
-    <meta charset="utf-8">
-    <title>LIFF API Sandbox - Safe Version</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no" />
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Open Chat LIFF App</title>
+</head>
+<body>
+    <h1>予約メッセージ送信</h1>
+    <textarea id="messageInput" placeholder="メッセージを入力"></textarea>
+    <button id="sendButton">送信</button>
+    <button id="closeButton">閉じる</button>
+
+    <!-- LIFF SDK読み込み -->
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-    <script src="https://unpkg.com/vue@2.6.14/dist/vue.min.js"></script>
-    <style>
-    .container {
-      padding: 10px;
-      font-family: sans-serif;
-    }
-    .wrap {
-      padding: 15px;
-      margin: 10px 0;
-      border: 1px solid #ddd;
-      border-radius: 5px;
-      background: #f9f9f9;
-    }
-    .response {
-      word-wrap: break-word;
-      background: #fff;
-      padding: 10px;
-      border-radius: 3px;
-      margin-top: 10px;
-    }
-    h1 {
-      font-size: 18px;
-      margin: 0 0 10px 0;
-    }
-    button {
-      padding: 10px 20px;
-      font-size: 14px;
-      border-radius: 5px;
-      border: none;
-      background: #06c755;
-      color: white;
-      cursor: pointer;
-    }
-    button:hover {
-      background: #05a847;
-    }
-    </style>
-  </head>
-  <body>
-    <div id="container">
-      <h1 style="font-size: 24px;">LIFF API Sandbox</h1>
-      
-      <div class="wrap wrap1">
-        <h1>liff.init()</h1>
-        <pre class="response">初期化中...</pre>
-      </div>
-
-      <!-- getProfile()は削除：Open Chatでは使用不可のため -->
-      
-      <div class="wrap wrap3">
-        <h1>liff.getAccessToken()</h1>
-        <pre class="response">トークン取得中...</pre>
-      </div>
-      
-      <div class="wrap wrap4">
-        <h1>liff.isInClient()</h1>
-        <pre class="response">確認中...</pre>
-      </div>
-
-      <div class="wrap wrap99">
-        <h1>liff.sendMessages()</h1>
-        <input type="text" id="messageInput" placeholder="メッセージを入力" style="width: 80%; padding: 8px; margin-bottom: 10px;">
-        <button @click="sendMessage">メッセージを送信</button>
-      </div>
-      
-      <div class="wrap wrap98">
-        <h1>liff.openWindow()</h1>
-        <button @click="openWindow">外部URLを開く</button>
-      </div>
-
-      <div class="wrap wrap100">
-        <h1>liff.closeWindow()</h1>
-        <button @click="closeWindow">LIFFを閉じる</button>
-      </div>
-    </div>
-
-    <script type="text/javascript">
-    new Vue({
-      el: `#container`,
-      mounted: function(){
+    
+    <script>
         // LIFF初期化
-        liff.init({
-          liffId: 'YOUR_LIFF_ID_HERE' // ← ここにLIFF IDを入力
-        })
-        .then(() => {
-          document.querySelector('.wrap1 .response').innerHTML = 'LIFF初期化成功';
+        window.onload = function() {
+            liff.init({
+                liffId: '2008484224-QG93kNNb' // 取得したLIFF IDを入力
+            })
+            .then(() => {
+                console.log('LIFF init succeeded');
+            })
+            .catch((err) => {
+                console.error('LIFF init failed', err);
+                alert('初期化エラー: ' + err);
+            });
+        };
 
-          // アクセストークン取得
-          const token = liff.getAccessToken();
-          document.querySelector('.wrap3 .response').innerHTML = token ? 'トークン取得成功' : 'トークンなし';
+        // メッセージ送信
+        document.getElementById('sendButton').addEventListener('click', function() {
+            const message = document.getElementById('messageInput').value;
+            
+            if (!message) {
+                alert('メッセージを入力してください');
+                return;
+            }
 
-          // LINEアプリ内かどうか確認
-          const isInClient = liff.isInClient();
-          document.querySelector('.wrap4 .response').innerHTML = isInClient ? 'LINEアプリ内で実行中' : 'ブラウザで実行中';
-        })
-        .catch(err => {
-          document.querySelector('.wrap1 .response').innerHTML = 'エラー: ' + JSON.stringify(err);
+            // LINEアプリ内かブラウザか判定
+            if (liff.isInClient()) {
+                // LINEアプリ内：開いているトークに直接送信
+                liff.sendMessages([{
+                    type: 'text',
+                    text: message
+                }])
+                .then(() => {
+                    console.log('メッセージ送信成功');
+                    alert('送信しました！');
+                })
+                .catch((err) => {
+                    console.error('送信エラー', err);
+                    alert('エラー: ' + err);
+                });
+            } else {
+                // ブラウザ：送信先選択画面を表示
+                liff.shareTargetPicker([{
+                    type: 'text',
+                    text: message
+                }])
+                .then(() => {
+                    console.log('メッセージ送信成功');
+                })
+                .catch((err) => {
+                    console.error('送信エラー', err);
+                });
+            }
         });
-      },
-      methods: {
-        sendMessage: () => {
-          const message = document.getElementById('messageInput').value;
-          
-          if (!message) {
-            alert('メッセージを入力してください');
-            return;
-          }
 
-          liff.sendMessages([{
-            type: 'text',
-            text: message  // ユーザーが入力したメッセージのみ送信
-          }])
-          .then(() => {
-            console.log('メッセージ送信成功');
-            alert('送信しました！');
-          })
-          .catch((err) => {
-            console.log('送信エラー', err);
-            alert('エラー: ' + err);
-          });
-        },
-        openWindow: () => {
-          liff.openWindow({
-            url: 'https://line.me/',
-            external: true
-          });
-        },
-        closeWindow: () => {
-          liff.closeWindow();
-        }
-      }
-    });
+        // ウィンドウを閉じる
+        document.getElementById('closeButton').addEventListener('click', function() {
+            liff.closeWindow();
+        });
     </script>
-  </body>
+</body>
 </html>
