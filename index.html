@@ -23,6 +23,14 @@
       font-size: 20px;
       margin-bottom: 20px;
     }
+    .info {
+      background: #e7f3ff;
+      border-left: 4px solid #2196F3;
+      padding: 12px;
+      margin-bottom: 15px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
     textarea {
       width: 100%;
       padding: 10px;
@@ -43,12 +51,17 @@
       font-size: 16px;
       cursor: pointer;
       font-weight: bold;
+      margin-bottom: 8px;
     }
     button:hover {
       background: #05a847;
     }
     button:active {
       background: #048a3a;
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
     }
     .status {
       margin-top: 15px;
@@ -64,29 +77,117 @@
       background: #f8d7da;
       color: #721c24;
     }
+    .warning {
+      background: #fff3cd;
+      color: #856404;
+    }
+    .debug {
+      margin-top: 15px;
+      padding: 10px;
+      background: #f8f9fa;
+      border: 1px solid #dee2e6;
+      border-radius: 4px;
+      font-size: 12px;
+      font-family: monospace;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
     </style>
   </head>
   <body>
     <div class="container">
-      <h1>Open Chat メッセージ送信</h1>
+      <h1>メッセージ送信</h1>
+      
+      <div class="info" id="infoMessage">
+        📱 環境を確認中...
+      </div>
+
       <textarea id="messageText" placeholder="送信するメッセージを入力してください"></textarea>
-      <button onclick="sendMessage()">送信</button>
+      
+      <button id="sendButton" onclick="sendMessage()" disabled>送信</button>
+      <button id="copyButton" onclick="copyToClipboard()" style="background: #888; display: none;">📋 クリップボードにコピー</button>
+      
       <div id="status"></div>
+      <div id="debug" class="debug" style="display: none;"></div>
     </div>
 
     <script>
+    let liffContext = null;
+    let canUseSendMessages = false;
+    let canUseShareTargetPicker = false;
+
     // LIFF初期化
-    function initLIFF() {
-      liff.init({
-        liffId: '2008484224-QG93kNNb'  // ← ここにLIFF IDを入力
-      })
-      .catch(err => {
+    async function initLIFF() {
+      try {
+        await liff.init({
+          liffId: '2008484224-QG93kNNb'
+        });
+
+        // ログイン確認
+        if (!liff.isLoggedIn()) {
+          liff.login();
+          return;
+        }
+
+        // 環境情報を取得
+        liffContext = liff.getContext();
+        
+        // デバッグ情報を表示
+        showDebug();
+
+        // 機能チェック
+        checkAvailableFeatures();
+
+      } catch (err) {
         showStatus('LIFF初期化エラー: ' + err.message, 'error');
-      });
+      }
+    }
+
+    // 利用可能な機能をチェック
+    function checkAvailableFeatures() {
+      const context = liffContext;
+      
+      // sendMessagesが使えるかチェック
+      canUseSendMessages = (
+        liff.isInClient() &&
+        context.type !== 'external' &&
+        context.type !== 'none' &&
+        liff.isApiAvailable('shareTargetPicker')
+      );
+
+      // shareTargetPickerが使えるかチェック
+      canUseShareTargetPicker = liff.isApiAvailable('shareTargetPicker');
+
+      // 環境に応じたメッセージを表示
+      let infoMsg = '';
+      let sendButtonText = '送信';
+      
+      if (context.type === 'utou') {
+        infoMsg = '✅ 1対1トーク環境です。直接送信できます。';
+        canUseSendMessages = true;
+      } else if (context.type === 'group') {
+        infoMsg = '✅ グループトーク環境です。直接送信できます。';
+        canUseSendMessages = true;
+      } else if (context.type === 'room') {
+        infoMsg = '✅ 複数人トーク環境です。直接送信できます。';
+        canUseSendMessages = true;
+      } else if (context.type === 'external' || context.type === 'none') {
+        if (canUseShareTargetPicker) {
+          infoMsg = 'ℹ️ Open Chat環境です。送信先を選択する方式で送信します。';
+          sendButtonText = '📤 送信先を選択';
+        } else {
+          infoMsg = '⚠️ この環境では自動送信できません。コピーして手動で貼り付けてください。';
+          document.getElementById('copyButton').style.display = 'block';
+        }
+      }
+
+      document.getElementById('infoMessage').innerHTML = infoMsg;
+      document.getElementById('sendButton').textContent = sendButtonText;
+      document.getElementById('sendButton').disabled = false;
     }
 
     // メッセージ送信
-    function sendMessage() {
+    async function sendMessage() {
       const message = document.getElementById('messageText').value.trim();
       
       if (!message) {
@@ -94,17 +195,68 @@
         return;
       }
 
-      liff.sendMessages([{
+      const messageData = [{
         type: 'text',
         text: message
-      }])
-      .then(() => {
-        showStatus('✓ メッセージを送信しました！', 'success');
-        document.getElementById('messageText').value = '';
-      })
-      .catch(err => {
-        showStatus('送信エラー: ' + err.message, 'error');
-      });
+      }];
+
+      try {
+        // 直接送信が可能な環境
+        if (canUseSendMessages && (liffContext.type === 'utou' || liffContext.type === 'group' || liffContext.type === 'room')) {
+          await liff.sendMessages(messageData);
+          showStatus('✓ メッセージを送信しました！', 'success');
+          document.getElementById('messageText').value = '';
+        }
+        // シェアターゲットピッカーを使用
+        else if (canUseShareTargetPicker) {
+          const result = await liff.shareTargetPicker(messageData);
+          if (result) {
+            showStatus('✓ メッセージを送信しました！', 'success');
+            document.getElementById('messageText').value = '';
+          } else {
+            showStatus('送信がキャンセルされました', 'warning');
+          }
+        }
+        // どちらも使えない場合
+        else {
+          showStatus('この環境では自動送信できません。「クリップボードにコピー」ボタンを使用してください。', 'warning');
+          document.getElementById('copyButton').style.display = 'block';
+        }
+      } catch (err) {
+        console.error('送信エラー:', err);
+        showStatus('送信エラー: ' + err.message + ' (Code: ' + (err.code || 'unknown') + ')', 'error');
+        
+        // エラー時の代替案を提示
+        if (err.code === 403 || err.code === 'FORBIDDEN') {
+          showStatus('⚠️ この環境では自動送信できません。クリップボードにコピーして手動で貼り付けてください。', 'warning');
+          document.getElementById('copyButton').style.display = 'block';
+        }
+      }
+    }
+
+    // クリップボードにコピー
+    async function copyToClipboard() {
+      const message = document.getElementById('messageText').value.trim();
+      
+      if (!message) {
+        showStatus('メッセージを入力してください', 'error');
+        return;
+      }
+
+      try {
+        await navigator.clipboard.writeText(message);
+        showStatus('✓ クリップボードにコピーしました！\nOpen Chatに戻って貼り付けてください', 'success');
+      } catch (err) {
+        // フォールバック
+        const textarea = document.getElementById('messageText');
+        textarea.select();
+        try {
+          document.execCommand('copy');
+          showStatus('✓ クリップボードにコピーしました！\nOpen Chatに戻って貼り付けてください', 'success');
+        } catch (e) {
+          showStatus('コピーに失敗しました', 'error');
+        }
+      }
     }
 
     // ステータス表示
@@ -112,6 +264,26 @@
       const status = document.getElementById('status');
       status.textContent = message;
       status.className = 'status ' + type;
+    }
+
+    // デバッグ情報表示
+    function showDebug() {
+      const debugInfo = {
+        type: liffContext.type,
+        userId: liffContext.userId ? '(取得済み)' : '(なし)',
+        isInClient: liff.isInClient(),
+        isLoggedIn: liff.isLoggedIn(),
+        canUseSendMessages: canUseSendMessages,
+        canUseShareTargetPicker: liff.isApiAvailable('shareTargetPicker'),
+        os: liff.getOS(),
+        language: liff.getLanguage(),
+        version: liff.getVersion(),
+        lineVersion: liff.getLineVersion()
+      };
+
+      const debugElement = document.getElementById('debug');
+      debugElement.textContent = JSON.stringify(debugInfo, null, 2);
+      debugElement.style.display = 'block';
     }
 
     // ページロード時に初期化
